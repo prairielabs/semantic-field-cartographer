@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Semantic Field Cartographer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #0d0f12; --panel: #14171c; --line: #262b33; --ink: #d7dce3;
+    --dim: #8a93a0; --gold: #d4a017; --gold-soft: #d4a01744;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font: 13px/1.45 ui-monospace, "SF Mono", Menlo, monospace; height: 100vh; display: flex; overflow: hidden; }
+
+  /* ── the 2D table ─────────────────────────────── */
+  #table-pane { width: 46%; min-width: 520px; border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+  header { padding: 10px 14px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: baseline; }
+  header h1 { font-size: 13px; font-weight: 600; letter-spacing: .08em; color: var(--gold); }
+  header span { color: var(--dim); font-size: 11px; }
+  #grid-wrap { overflow: auto; flex: 1; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border-bottom: 1px solid var(--line); padding: 3px 6px; text-align: center; white-space: nowrap; }
+  thead th { position: sticky; top: 0; background: var(--panel); color: var(--dim); font-weight: 500; font-size: 11px; z-index: 2; }
+  thead th.sortable { cursor: pointer; user-select: none; }
+  thead th.sortable:hover { color: var(--gold); }
+  thead th .poles { display: block; font-size: 9px; color: #5c6470; }
+  tbody th { text-align: left; font-weight: 500; color: var(--ink); background: var(--panel); position: sticky; left: 0; }
+  td input { width: 44px; background: transparent; border: 1px solid transparent; color: var(--ink); font: inherit; text-align: center; border-radius: 3px; }
+  td input:hover { border-color: var(--line); }
+  td input:focus { border-color: var(--gold); outline: none; }
+  td.S { color: var(--gold); font-size: 11px; }
+  #composites { border-top: 1px solid var(--line); padding: 10px 14px; }
+  #composites h2 { font-size: 11px; color: var(--dim); letter-spacing: .1em; margin-bottom: 6px; }
+  .axis-row { display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px; }
+  .axis-row b { color: var(--gold); width: 12px; }
+  .axis-row .name { width: 90px; color: var(--ink); }
+  .axis-row .recipe { color: var(--dim); font-size: 11px; }
+  .axis-row input { width: 40px; background: transparent; border: 1px solid var(--line); color: var(--ink); font: inherit; text-align: center; border-radius: 3px; }
+  footer { padding: 8px 14px; border-top: 1px solid var(--line); color: var(--dim); font-size: 11px; }
+
+  /* ── the 3D space ─────────────────────────────── */
+  #space-pane { flex: 1; position: relative; }
+  body.immersive #table-pane { display: none; }
+  #fs-btn { position: absolute; top: 10px; right: 12px; z-index: 6; background: #14171caa; border: 1px solid var(--line); color: var(--dim); font: 14px ui-monospace; padding: 4px 9px; border-radius: 5px; cursor: pointer; }
+  #fs-btn:hover { color: var(--gold); border-color: var(--gold-soft); }
+  #grid-step { position: absolute; top: 10px; right: 52px; z-index: 6; background: #14171caa; border: 1px solid var(--line); color: var(--dim); font: 11px ui-monospace; padding: 5px 6px; border-radius: 5px; cursor: pointer; }
+  #grid-step:hover { color: var(--gold); border-color: var(--gold-soft); }
+  #octant-legend { position: absolute; top: 52px; right: 12px; z-index: 5; background: #14171cbb; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; max-height: 62vh; overflow-y: auto; }
+  #octant-legend .lgrid { display: grid; grid-template-columns: max-content repeat(3, auto); gap: 3px 9px; align-items: center; }
+  #octant-legend .lhead-cell { color: var(--dim); font-size: 8px; letter-spacing: .06em; text-align: center; }
+  #octant-legend .lname { color: var(--ink); font-size: 10px; white-space: nowrap; }
+  #octant-legend .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; justify-self: center; }
+  #toggles { position: absolute; top: 10px; right: 132px; z-index: 6; display: flex; gap: 6px; }
+  .tgl { background: #14171caa; border: 1px solid var(--line); color: var(--dim); font: 11px ui-monospace; padding: 5px 8px; border-radius: 5px; cursor: pointer; }
+  .tgl:hover { border-color: var(--gold-soft); }
+  .tgl.on { color: var(--gold); border-color: var(--gold-soft); }
+  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+  #hud { position: absolute; top: 10px; left: 12px; color: var(--dim); font-size: 11px; pointer-events: none; }
+  #hud b { color: var(--gold); }
+  #tip { position: absolute; display: none; background: #14171cee; border: 1px solid var(--gold-soft); border-radius: 6px; padding: 8px 10px; pointer-events: none; max-width: 240px; z-index: 5; }
+  #tip h3 { font-size: 12px; color: var(--gold); margin-bottom: 4px; }
+  #tip .bar { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--dim); }
+  #tip .bar i { display: inline-block; height: 4px; background: var(--gold); border-radius: 2px; }
+  #tip .S { margin-top: 4px; font-size: 10px; color: var(--ink); }
+</style>
+</head>
+<body>
+
+<!-- ══ LAYER 0-2: the table — constructs × scalars, and the composite declarations ══ -->
+<div id="table-pane">
+  <header><h1>SEMANTIC FIELD CARTOGRAPHER</h1><span>2D table → composites → 3D space</span></header>
+  <div id="grid-wrap"><table id="grid"></table></div>
+  <div id="composites"><h2>COMPOSITES — the declared view</h2><div id="axes"></div></div>
+  <footer>cells and weights are editable live · drag to look · WASD move · Space/Shift rise/sink · F immersive</footer>
+</div>
+
+<!-- ══ LAYER 3-4: the projection and the traversal ══ -->
+<div id="space-pane">
+  <canvas id="c"></canvas>
+  <button id="fs-btn" title="immersive (F)">⛶</button>
+  <div id="toggles">
+    <button id="tg-oct" class="tgl" title="octant colors">octants</button>
+    <button id="tg-leg" class="tgl" title="octant legend">legend</button>
+    <button id="tg-num" class="tgl" title="axis numbers">nums</button>
+  </div>
+  <select id="grid-step" title="grid detail">
+    <option value="0.5">grid 0.5</option>
+    <option value="0.25" selected>grid 0.25</option>
+    <option value="0.1">grid 0.1</option>
+    <option value="0.05">grid 0.05</option>
+  </select>
+  <div id="octant-legend" style="display:none"></div>
+  <div id="hud"><b id="hud-axes"></b><br><span id="hud-pos"></span></div>
+  <div id="tip"></div>
+</div>
+
+<script>
+"use strict";
+/* ════════════════════════════════════════════════════════════════════
+   LAYER 0 — MATTER. A 2D table: constructs (rows) × scalars (columns).
+   Every degree is a judgment on [0,1]. Poles defined per scalar.
+   ════════════════════════════════════════════════════════════════════ */
+const SCALARS = [
+  { id: "durability", poles: "fragile → indestructible" },
+  { id: "firepower",  poles: "light → devastating"      },
+  { id: "speed",      poles: "slow → blistering"        },
+];
+const MATTER = [ /* fighters in service 1943; judged relative within that year's sky */
+  ["P-47 Thunderbolt", 1.0, .85, .85],
+  ["P-38 Lightning",   .70, .80, .80],
+  ["P-51B Mustang",    .55, .55, .95],
+  ["F4U Corsair",      .80, .70, .80],
+  ["F6F Hellcat",      .90, .70, .65],
+  ["P-40 Warhawk",     .70, .55, .55],
+  ["P-39 Airacobra",   .60, .80, .60],
+  ["Spitfire Mk IX",   .50, .65, .72],
+  ["Hawker Typhoon",   .65, .90, .80],
+  ["Bf 109 G-6",       .45, .60, .75],
+  ["Fw 190 A-5",       .75, .95, .75],
+  ["A6M3 Zero",        .15, .45, .45],
+  ["Ki-43 Oscar",      .10, .10, .40],
+  ["Ki-61 Tony",       .50, .40, .55],
+  ["Yak-9",            .45, .55, .65],
+  ["La-5FN",           .70, .50, .70],
+  ["MC.205 Veltro",    .50, .60, .70],
+];
+
+/* ════════════════════════════════════════════════════════════════════
+   LAYER 2 — COMPOSITES. Three declared folds of the columns. Devised,
+   not computed: each axis is a named semantic claim with a recipe.
+   ════════════════════════════════════════════════════════════════════ */
+const AXES = [
+  { dim: "x", name: "DURABILITY", weights: { durability: 1 } },
+  { dim: "y", name: "FIREPOWER",  weights: { firepower: 1 } },
+  { dim: "z", name: "SPEED",      weights: { speed: 1 } },
+];
+
+/* ════════════════════════════════════════════════════════════════════
+   LAYER 3 — PROJECTION. The drawing rule: weighted mean per axis,
+   [0,1]³ mapped onto a world cube. Entropy = plain profile average.
+   ════════════════════════════════════════════════════════════════════ */
+const WORLD = 100; // cube edge in world units
+const sIndex = Object.fromEntries(SCALARS.map((s, i) => [s.id, i]));
+function axisValue(row, axis) {
+  let num = 0, den = 0;
+  for (const [id, w] of Object.entries(axis.weights)) { num += w * row[sIndex[id] + 1]; den += w; }
+  return den ? num / den : .5;
+}
+function entropy(row) { let s = 0; for (let i = 1; i < row.length; i++) s += row[i]; return s / SCALARS.length; }
+let points = [];
+function project() {
+  points = MATTER.map(row => ({
+    name: row[0], row,
+    x: (axisValue(row, AXES[0]) * 2 - 1) * WORLD / 2,
+    y: (axisValue(row, AXES[1]) * 2 - 1) * WORLD / 2,
+    z: (axisValue(row, AXES[2]) * 2 - 1) * WORLD / 2,
+    S: entropy(row),
+  }));
+  if (document.getElementById("octant-legend").innerHTML) buildLegend();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   LAYER 4 — TRAVERSAL. A camera inside the space: free-look + WASD.
+   Canvas 2D with perspective projection; painter-sorted points.
+   ════════════════════════════════════════════════════════════════════ */
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+const cam = { x: 0, y: 18, z: -170, yaw: 0, pitch: -0.08, speed: 0.9 };
+const keys = {};
+let dragging = false, lastX = 0, lastY = 0, mouseX = -1, mouseY = -1;
+
+function resize() { cv.width = cv.clientWidth * devicePixelRatio; cv.height = cv.clientHeight * devicePixelRatio; }
+addEventListener("resize", resize);
+
+cv.addEventListener("mousedown", e => { dragging = true; cv.classList.add("dragging"); lastX = e.clientX; lastY = e.clientY; });
+addEventListener("mouseup", () => { dragging = false; cv.classList.remove("dragging"); });
+addEventListener("mousemove", e => {
+  if (dragging) {
+    cam.yaw   += (e.clientX - lastX) * .0032;
+    cam.pitch -= (e.clientY - lastY) * .0032;
+    cam.pitch = Math.max(-1.5, Math.min(1.5, cam.pitch));
+    lastX = e.clientX; lastY = e.clientY;
+  }
+  const r = cv.getBoundingClientRect();
+  mouseX = (e.clientX - r.left) * devicePixelRatio; mouseY = (e.clientY - r.top) * devicePixelRatio;
+});
+addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  if (e.key === " ") e.preventDefault();
+  keys[e.key.toLowerCase()] = true;
+});
+addEventListener("keyup",   e => { keys[e.key.toLowerCase()] = false; });
+
+function view(p) { // world → camera space
+  let dx = p.x - cam.x, dy = p.y - cam.y, dz = p.z - cam.z;
+  const cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+  let x = dx * cy - dz * sy, z = dx * sy + dz * cy;
+  const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+  let y = dy * cp - z * sp;  z = dy * sp + z * cp;
+  return { x, y, z };
+}
+function toScreen(v) {
+  const f = cv.height * .9;
+  return { sx: cv.width / 2 + f * v.x / v.z, sy: cv.height / 2 - f * v.y / v.z };
+}
+
+function step() {
+  const fwd = { x: Math.sin(cam.yaw), z: Math.cos(cam.yaw) };
+  const sp = cam.speed;
+  if (keys["w"]) { cam.x += fwd.x * sp; cam.z += fwd.z * sp; }
+  if (keys["s"]) { cam.x -= fwd.x * sp; cam.z -= fwd.z * sp; }
+  if (keys["a"]) { cam.x -= fwd.z * sp; cam.z += fwd.x * sp; }
+  if (keys["d"]) { cam.x += fwd.z * sp; cam.z -= fwd.x * sp; }
+  if (keys[" "] || keys["q"]) cam.y += sp;
+  if (keys["shift"] || keys["e"]) cam.y -= sp;
+}
+
+/* a three-dimensional grid, not a box: a full lattice at 0.25 spacing,
+   emanating from the 0.5 lines — the axes boldest, the three center
+   planes next, the outer lattice faint */
+function gridLines(step) { // step in scalar degrees, e.g. 0.25
+  const h = WORLD / 2, N = Math.round(1 / step), L = [];
+  const P = Array.from({ length: N + 1 }, (_, i) => -h + WORLD * i / N);
+  const mid = N / 2;
+  const tier = (i, j) => (i === mid && j === mid) ? 0 : (i === mid || j === mid) ? 1 : 2;
+  P.forEach((y, i) => P.forEach((z, j) => L.push({ a: {x:-h,y,z}, b: {x:h,y,z}, t: tier(i, j) })));
+  P.forEach((x, i) => P.forEach((z, j) => L.push({ a: {x,y:-h,z}, b: {x,y:h,z}, t: tier(i, j) })));
+  P.forEach((x, i) => P.forEach((y, j) => L.push({ a: {x,y,z:-h}, b: {x,y,z:h}, t: tier(i, j) })));
+  return L.sort((m, n) => n.t - m.t); // faint first, axes last
+}
+let LINES = gridLines(0.25);
+document.getElementById("grid-step").addEventListener("change", e => { LINES = gridLines(+e.target.value); });
+
+/* ── octant regions: the 2×2×2 shell; configs are (x,y,z) bits, 000→111 ── */
+const OCT_CONFIGS = [[0,0,0],[1,0,0],[0,1,0],[1,1,0],[0,0,1],[1,0,1],[0,1,1],[1,1,1]];
+const OCT_COLORS = ["#e05252","#5277e0","#e0d052","#52e07a","#9b52e0","#e09452","#e052b8","#52d5e0"];
+const OCT_FACES = (() => {
+  const h = WORLD / 2, F = [];
+  OCT_CONFIGS.forEach(([bx, by, bz], c) => {
+    const x0 = bx ? 0 : -h, x1 = bx ? h : 0, y0 = by ? 0 : -h, y1 = by ? h : 0, z0 = bz ? 0 : -h, z1 = bz ? h : 0;
+    const xf = bx ? x1 : x0, yf = by ? y1 : y0, zf = bz ? z1 : z0;
+    F.push({ c, pts: [{x:xf,y:y0,z:z0},{x:xf,y:y1,z:z0},{x:xf,y:y1,z:z1},{x:xf,y:y0,z:z1}] });
+    F.push({ c, pts: [{x:x0,y:yf,z:z0},{x:x1,y:yf,z:z0},{x:x1,y:yf,z:z1},{x:x0,y:yf,z:z1}] });
+    F.push({ c, pts: [{x:x0,y:y0,z:zf},{x:x1,y:y0,z:zf},{x:x1,y:y1,z:zf},{x:x0,y:y1,z:zf}] });
+  });
+  return F;
+})();
+let showRegions = false, showMarks = false; // all overlays default off
+const TIER_STYLE = ["#54607a", "#39424f", "#232935"];
+
+const AXIS_LABELS = () => [
+  { x: WORLD/2 + 5, y: 0, z: 0, text: () => AXES[0].name },
+  { x: 0, y: WORLD/2 + 5, z: 0, text: () => AXES[1].name },
+  { x: 0, y: 0, z: WORLD/2 + 5, text: () => AXES[2].name },
+];
+
+const tip = document.getElementById("tip");
+function draw() {
+  step();
+  ctx.fillStyle = "#0d0f12"; ctx.fillRect(0, 0, cv.width, cv.height);
+
+  if (showRegions) { // the 2×2×2 shell, faint, painter-sorted
+    const faces = [];
+    for (const f of OCT_FACES) {
+      const vs = f.pts.map(view);
+      if (vs.some(v => v.z < 1)) continue;
+      faces.push({ f, vs, d: (vs[0].z + vs[1].z + vs[2].z + vs[3].z) / 4 });
+    }
+    faces.sort((a, b) => b.d - a.d);
+    ctx.globalAlpha = .035;
+    for (const { f, vs } of faces) {
+      const ps = vs.map(toScreen);
+      ctx.fillStyle = OCT_COLORS[f.c];
+      ctx.beginPath(); ctx.moveTo(ps[0].sx, ps[0].sy);
+      for (let i = 1; i < 4; i++) ctx.lineTo(ps[i].sx, ps[i].sy);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.lineWidth = 1;
+  for (const { a, b, t } of LINES) {
+    const va = view(a), vb = view(b);
+    if (va.z < 1 || vb.z < 1) continue;
+    const A = toScreen(va), B = toScreen(vb);
+    ctx.strokeStyle = TIER_STYLE[t];
+    ctx.globalAlpha = Math.max(.12, Math.min(1, 240 / ((va.z + vb.z) / 2))); // distance fog
+    ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  const vo = view({ x: 0, y: 0, z: 0 }); // the semantic center, (0.5, 0.5, 0.5)
+  if (vo.z > 1) {
+    const O = toScreen(vo);
+    ctx.beginPath(); ctx.arc(O.sx, O.sy, 2.5 * devicePixelRatio, 0, 7);
+    ctx.fillStyle = "#d4a017"; ctx.fill();
+  }
+  ctx.fillStyle = "#7a6a35"; ctx.font = `${11 * devicePixelRatio}px ui-monospace`;
+  for (const L of AXIS_LABELS()) {
+    const v = view(L);
+    if (v.z < 1) continue;
+    const s = toScreen(v);
+    ctx.fillText(L.text(), s.sx + 4, s.sy + 3);
+  }
+  if (showMarks) {
+    ctx.fillStyle = "#5c6470"; ctx.font = `${10 * devicePixelRatio}px ui-monospace`;
+    const h2 = WORLD / 2;
+    const marks = [
+      { x: -h2 - 5, y: 0, z: 0, t: "0" }, { x: h2 + 2, y: -4, z: 0, t: "1" },
+      { x: 0, y: -h2 - 5, z: 0, t: "0" }, { x: -6, y: h2 + 2, z: 0, t: "1" },
+      { x: 0, y: 0, z: -h2 - 5, t: "0" }, { x: -6, y: 0, z: h2 + 2, t: "1" },
+      { x: 2.5, y: -3.5, z: 0, t: "0.5" },
+    ];
+    for (const m of marks) {
+      const v = view(m); if (v.z < 1) continue;
+      const s = toScreen(v); ctx.fillText(m.t, s.sx, s.sy);
+    }
+  }
+
+  const drawn = [];
+  for (const p of points) {
+    const v = view(p);
+    if (v.z < 1) continue;
+    const s = toScreen(v), r = Math.max(2.5, 340 / v.z) * devicePixelRatio;
+    drawn.push({ p, ...s, r, z: v.z });
+  }
+  drawn.sort((a, b) => b.z - a.z);
+
+  let hover = null, best = 20 * devicePixelRatio;
+  for (const d of drawn) {
+    const dist = Math.hypot(d.sx - mouseX, d.sy - mouseY);
+    if (dist < best + d.r) { best = dist; hover = d; }
+  }
+  for (const d of drawn) {
+    const hot = hover && hover.p === d.p;
+    ctx.beginPath(); ctx.arc(d.sx, d.sy, d.r, 0, 7);
+    ctx.fillStyle = hot ? "#ffd75e" : "#d4a017";
+    ctx.globalAlpha = Math.min(1, 90 / d.z + .35); ctx.fill(); ctx.globalAlpha = 1;
+    if (d.z < 260 || hot) {
+      ctx.fillStyle = hot ? "#ffd75e" : "#8a93a0";
+      ctx.font = `${11 * devicePixelRatio}px ui-monospace`;
+      ctx.fillText(d.p.name, d.sx + d.r + 4, d.sy + 3);
+    }
+  }
+
+  if (hover) {
+    tip.style.display = "block";
+    tip.style.left = (hover.sx / devicePixelRatio + 16) + "px";
+    tip.style.top  = (hover.sy / devicePixelRatio + 8) + "px";
+    tip.innerHTML = `<h3>${hover.p.name}</h3>` + SCALARS.map((s, i) =>
+      `<div class="bar"><span style="width:74px">${s.id}</span><i style="width:${hover.p.row[i+1]*70}px"></i> ${hover.p.row[i+1].toFixed(2)}</div>`
+    ).join("") + `<div class="S">S = ${hover.p.S.toFixed(3)} · x ${((hover.p.x/WORLD)+.5).toFixed(2)} y ${((hover.p.y/WORLD)+.5).toFixed(2)} z ${((hover.p.z/WORLD)+.5).toFixed(2)}</div>`;
+  } else tip.style.display = "none";
+
+  document.getElementById("hud-pos").textContent =
+    `cam ${cam.x.toFixed(0)}, ${cam.y.toFixed(0)}, ${cam.z.toFixed(0)} · ${points.length} constructs · ${SCALARS.length} scalars`;
+  requestAnimationFrame(draw);
+}
+
+/* ── the live wire: table edits → reprojection ── */
+let sortKey = null, sortDir = -1;
+function renderTable() {
+  const t = document.getElementById("grid");
+  const arrow = k => sortKey === k ? (sortDir === -1 ? " ▾" : " ▴") : "";
+  t.innerHTML = `<thead><tr><th class="sortable" data-sort="name">construct${arrow("name")}</th>` +
+    SCALARS.map((s, i) =>
+      `<th class="sortable" data-sort="${i}">${s.id}${arrow(String(i))}<span class="poles">${s.poles}</span></th>`).join("") +
+    `<th class="sortable" data-sort="S">S${arrow("S")}</th></tr></thead><tbody>` +
+    MATTER.map((row, r) => `<tr><th>${row[0]}</th>` +
+      SCALARS.map((_, c) =>
+        `<td><input value="${row[c+1].toFixed(2)}" data-r="${r}" data-c="${c}"></td>`).join("") +
+      `<td class="S" id="S${r}">${entropy(row).toFixed(3)}</td></tr>`).join("") + "</tbody>";
+}
+function buildTable() {
+  const t = document.getElementById("grid");
+  t.addEventListener("input", e => {
+    const r = +e.target.dataset.r, c = +e.target.dataset.c;
+    const v = parseFloat(e.target.value);
+    if (!isNaN(v) && v >= 0 && v <= 1) {
+      MATTER[r][c + 1] = v;
+      document.getElementById("S" + r).textContent = entropy(MATTER[r]).toFixed(3);
+      project();
+    }
+  });
+  t.addEventListener("click", e => {
+    const th = e.target.closest("th[data-sort]");
+    if (!th) return;
+    const k = th.dataset.sort;
+    if (sortKey === k) sortDir = -sortDir;
+    else { sortKey = k; sortDir = k === "name" ? 1 : -1; }
+    MATTER.sort((a, b) => {
+      if (k === "name") return sortDir * a[0].localeCompare(b[0]);
+      if (k === "S") return sortDir * (entropy(a) - entropy(b));
+      return sortDir * (a[+k + 1] - b[+k + 1]);
+    });
+    renderTable(); project();
+  });
+  renderTable();
+}
+function buildAxes() {
+  const el = document.getElementById("axes");
+  el.innerHTML = AXES.map((a, i) => `<div class="axis-row"><b>${a.dim}</b><span class="name">${a.name}</span>` +
+    Object.entries(a.weights).map(([id, w]) =>
+      `<span class="recipe">${id}</span><input value="${w}" data-a="${i}" data-s="${id}">`).join(" ") + "</div>").join("");
+  el.addEventListener("input", e => {
+    const v = parseFloat(e.target.value);
+    if (!isNaN(v) && v >= 0) { AXES[+e.target.dataset.a].weights[e.target.dataset.s] = v; project(); }
+  });
+  document.getElementById("hud-axes").textContent = AXES.map(a => `${a.dim}=${a.name}`).join("  ");
+}
+
+/* ── octant legend + toggles ── */
+function buildLegend() {
+  const el = document.getElementById("octant-legend");
+  el.innerHTML = `<div class="lgrid"><span></span>` +
+    AXES.map(a => `<span class="lhead-cell">${a.name}</span>`).join("") +
+    MATTER.map(row => `<span class="lname">${row[0]}</span>` +
+      AXES.map(a => {
+        const v = axisValue(row, a);
+        return `<span class="dot" style="background:${v >= 0.5 ? "#4cc46a" : "#d05252"}"></span>`;
+      }).join("")).join("") + `</div>`;
+}
+const tgOct = document.getElementById("tg-oct"), tgLeg = document.getElementById("tg-leg"), tgNum = document.getElementById("tg-num");
+tgOct.addEventListener("click", () => { showRegions = !showRegions; tgOct.classList.toggle("on", showRegions); });
+tgLeg.addEventListener("click", () => {
+  const on = tgLeg.classList.toggle("on");
+  document.getElementById("octant-legend").style.display = on ? "" : "none";
+});
+tgNum.addEventListener("click", () => { showMarks = !showMarks; tgNum.classList.toggle("on", showMarks); });
+buildLegend();
+
+/* ── immersive: the space alone, fullscreen ── */
+const fsBtn = document.getElementById("fs-btn");
+function setImmersive(on) {
+  document.body.classList.toggle("immersive", on);
+  if (on) document.documentElement.requestFullscreen?.().catch(() => {});
+  else if (document.fullscreenElement) document.exitFullscreen?.();
+  requestAnimationFrame(resize);
+}
+fsBtn.addEventListener("click", () => setImmersive(!document.body.classList.contains("immersive")));
+addEventListener("keydown", e => {
+  if (e.key.toLowerCase() === "f" && e.target.tagName !== "INPUT")
+    setImmersive(!document.body.classList.contains("immersive"));
+});
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement) { document.body.classList.remove("immersive"); requestAnimationFrame(resize); }
+});
+
+buildTable(); buildAxes(); project(); resize(); draw();
+</script>
+</body>
+</html>
+<!-- theoretical basis: .field/THEORY.md -->
+
