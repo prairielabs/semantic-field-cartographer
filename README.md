@@ -21,6 +21,17 @@ red/green standings per construct, **nums** axis marks.
 
 That's everything. Ask the model for the next matter.
 
+## Credit
+
+The 3D visualization approach was inspired by **AutoWiki**, a project by
+**Tom Pagnozzi** (GitHub link coming soon).
+
+TikTok [@aibasics](https://tiktok.com/@aibasics) ·
+Instagram [@ai_basics](https://instagram.com/ai_basics) ·
+YouTube [@ai_basics](https://youtube.com/@ai_basics) ·
+X [@ai_basics](https://x.com/ai_basics) ·
+tepagnozzi@gmail.com
+
 ## License
 
 MIT © 2026 Prairie Labs, Inc.
