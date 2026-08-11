@@ -30,7 +30,7 @@ TikTok [@aibasics](https://tiktok.com/@aibasics) ·
 Instagram [@ai_basics](https://instagram.com/ai_basics) ·
 YouTube [@ai_basics](https://youtube.com/@ai_basics) ·
 X [@ai_basics](https://x.com/ai_basics) ·
-tepagnozzi@gmail.com
+tom@summersafe.ai
 
 ## License
 
