@@ -56,7 +56,8 @@ That is the entire ontology. Everything else is rendering.
 
 ## Controls to relay to the user (once, briefly)
 
-Drag to look · WASD to move · Space/Shift rise and sink · **F** immersive
+Drag to look · WASD or arrows to move · wheel to glide forward · Space/Shift
+rise and sink · R or double-click to return home · **F** immersive
 fullscreen · grid-detail selector top-right · column headers sort (click
 again to flip; S sorts the overall standing) · hover any point for its full
 profile · every table cell and axis weight is editable live — the space
@@ -78,6 +79,10 @@ these invariants is valid:
 - Right: the space. [0,1]³ mapped onto a cube (world edge ~100), camera
   *inside*: drag to free-look (drag up = look up), WASD planar movement,
   Space/Shift vertical, F toggles immersive fullscreen (table hidden).
+  Motion is frame-rate independent (per-second rates) and has inertia:
+  look eases toward the pointer's target, movement accelerates and damps;
+  wheel adds forward impulse; R or double-click returns to the home pose;
+  pointer events serve mouse, pen, and touch alike.
 - The grid is a graph, not a box: three principal axes crossing at the
   semantic center (0.5, 0.5, 0.5) — each axis is the 0.5-line of the other
   two — with a gold dot at the origin, axis names at positive ends, and a
