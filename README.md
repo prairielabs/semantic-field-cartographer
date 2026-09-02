@@ -3,6 +3,14 @@
 A 2D table of things and their qualities, folded onto a 3D graph you can fly
 through. Your AI does the judging, the folding, and the piloting.
 
+## Install
+
+Tell your coding agent (Claude Code, Codex, or similar):
+
+> **read this: https://github.com/prairielabs/semantic-field-cartographer/blob/main/HARNESSED_AGENT_READ_THIS.md**
+
+The installer is written in [Scissortail](https://github.com/prairielabs/scissortail) and is addressed to the model. It acquires the folder, reads its program, serves the field, and seats itself as the judge.
+
 ## Use
 
 1. Open this folder in Claude Code, Codex, or any similar agent.
