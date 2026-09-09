@@ -21,13 +21,13 @@ The installer is written in [Scissortail](https://github.com/prairielabs/scissor
 
 ## Flying
 
-Drag to look · **WASD** or arrows move · **wheel** glides forward · **Space/Shift**
-rise and sink · **R** or double-click returns home · **F** immersive · grid
-detail top-right · click column headers to sort · hover any point for its
-profile · edit any cell or weight — the map answers live. Motion has mass:
-the camera eases into a look and coasts to a stop, and it feels the same at
-any frame rate. Touch works: one finger looks.
-Optional overlays (off by default): **octants** region tints, **legend**
+Drag to look · **WASD** or arrows move · **wheel** glides forward (**hold Shift**
+for 4× speed) · **Space/Shift** rise and sink · **R** or double-click returns
+home · **F** immersive · grid detail top-right · click column headers to sort ·
+hover any point for its profile · edit any cell or weight — the map answers
+live. Motion has mass: the camera eases into a look and coasts to a stop, and
+it feels the same at any frame rate. Touch works: one finger looks.
+Optional controls: **light** toggles the palette; **octants** region tints, **legend**
 red/green standings per construct, **nums** axis marks.
 
 That's everything. Ask the model for the next matter.
